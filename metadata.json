@@ -1,0 +1,5 @@
+{
+  "name": "VisaFreeList AI",
+  "description": "An intelligent visa requirement checker and passport comparison tool powered by Gemini AI.",
+  "requestFramePermissions": []
+}

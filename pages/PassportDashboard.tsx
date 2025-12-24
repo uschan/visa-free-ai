@@ -71,7 +71,7 @@ const PassportDashboard: React.FC = () => {
                 <p className="text-cyber-cyan font-mono text-xs mb-6 tracking-widest opacity-80">CITIZENSHIP_CLASS: A // ISSUER: GOV_{passport.iso2}</p>
                 
                 <div className="text-gray-300 font-mono text-sm leading-relaxed max-w-3xl border-l-2 border-gray-700 pl-4">
-                    <span className="text-cyber-purple">>> ANALYSIS:</span> Holders possess global mobility index {passport.metadata?.visaFreeAccess}. 
+                    <span className="text-cyber-purple">&gt;&gt; ANALYSIS:</span> Holders possess global mobility index {passport.metadata?.visaFreeAccess}. 
                     Primary access granted to <span className="text-white text-glow">{stats[VisaStatus.VISA_FREE]} zones</span> via direct entry protocols.
                 </div>
             </div>

@@ -25,8 +25,8 @@ const Home: React.FC = () => {
         </h1>
         
         <p className="text-lg text-gray-400 max-w-xl font-mono border-l-2 border-cyber-purple pl-4">
-          >> Access real-time visa protocols.<br/>
-          >> Initialize passport analysis sequence.
+          &gt;&gt; Access real-time visa protocols.<br/>
+          &gt;&gt; Initialize passport analysis sequence.
         </p>
 
         {/* Terminal Search Bar */}
@@ -119,7 +119,7 @@ const Home: React.FC = () => {
 
                 {/* Footer Action */}
                 <div className="bg-cyber-black/50 border-t border-gray-800 py-2 text-center text-[10px] font-mono text-gray-500 group-hover:text-cyber-cyan group-hover:bg-cyber-cyan/10 transition-colors uppercase tracking-widest">
-                    >> Initialize Detail Scan
+                    &gt;&gt; Initialize Detail Scan
                 </div>
              </div>
          ))}

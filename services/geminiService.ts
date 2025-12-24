@@ -26,10 +26,11 @@ export const fetchVisaRequirements = async (passportCode: string): Promise<VisaR
     List 40 popular travel destinations (include mix of Asia, Europe, Americas, Oceania).
     Categorize them strictly into: VISA_FREE, VISA_ON_ARRIVAL, ETA (includes e-visa), or VISA_REQUIRED.
     
-    CRITICAL: 
+    CRITICAL INSTRUCTIONS: 
     1. Provide the ISO 3166-1 alpha-2 code (2 letters) as 'iso2Code' (e.g. JP, FR).
     2. Provide the ISO 3166-1 alpha-3 code (3 letters) as 'isoCode'.
-    3. Ensure the 'status' matches real world data for 2024/2025.
+    3. STATUS ACCURACY: Ensure the 'status' is accurate for 2024/2025. Verify if ETIAS or new e-visa rules apply.
+    4. MIX: Ensure a good mix of visa-free and visa-required countries to show the passport's strength accurately.
     
     Return pure JSON array.
   `;
@@ -88,6 +89,8 @@ export const fetchDestinationDetails = async (passportCode: string, destinationI
 
    const prompt = `
      Using Google Search, find the latest 2024/2025 visa requirements for ${passportCode} passport holders traveling to country with ISO code ${destinationIso}.
+     
+     Verify recent policy changes (e.g., visa waivers, new e-visa portals).
      
      Provide:
      1. Exact visa status (Visa Free, VoA, e-Visa, or Required).
@@ -159,6 +162,7 @@ export const comparePassportAccess = async (codeA: string, codeB: string): Promi
 
     const prompt = `
       Compare visa access for Passport A (${codeA}) and Passport B (${codeB}) for 15 diverse countries.
+      Ensure accuracy for 2024/2025 regulations.
     `;
 
     try {

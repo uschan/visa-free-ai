@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { VisaRequirement, VisaStatus } from '../types';
 import { fetchDestinationDetails } from '../services/geminiService';
-import { POPULAR_PASSPORTS, STATUS_COLORS, getFlagUrl } from '../constants';
-import { ArrowLeft, CheckSquare, Clock, MapPin, Wind, Banknote, Users, Building2, Plane, ShieldAlert, FileText, Globe, Link as LinkIcon } from 'lucide-react';
+import { POPULAR_PASSPORTS, getFlagUrl } from '../constants';
+import { ArrowLeft, CheckSquare, Clock, Wind, Banknote, Users, Building2, FileText, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const DestinationDetail: React.FC = () => {
   const { iso } = useParams<{ iso: string }>();
@@ -13,22 +13,62 @@ const DestinationDetail: React.FC = () => {
   
   const [detail, setDetail] = useState<VisaRequirement | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   // Get source passport details for visual
   const sourcePassport = POPULAR_PASSPORTS.find(p => p.code === passportCode);
 
+  const load = async () => {
+    setLoading(true);
+    setError(false);
+    // Add artificial delay for visual stability if cache is instant
+    const start = Date.now();
+    
+    const data = await fetchDestinationDetails(passportCode, iso || '');
+    
+    const elapsed = Date.now() - start;
+    if (elapsed < 500) await new Promise(r => setTimeout(r, 500 - elapsed));
+
+    if (data) {
+        setDetail(data);
+    } else {
+        setError(true);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const data = await fetchDestinationDetails(passportCode, iso || '');
-      setDetail(data);
-      setLoading(false);
-    };
     load();
   }, [iso, passportCode]);
 
-  if (loading) return <div className="py-20 text-center font-mono text-cyber-cyan animate-pulse">ESTABLISHING SECURE CONNECTION...</div>;
-  if (!detail) return <div className="py-20 text-center font-mono text-red-500">DATA_PACKET_LOSS // RETRY</div>;
+  if (loading) return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
+        <div className="relative w-16 h-16">
+            <div className="absolute inset-0 border-2 border-cyber-cyan/30 rounded-full"></div>
+            <div className="absolute inset-0 border-t-2 border-cyber-cyan rounded-full animate-spin"></div>
+        </div>
+        <div className="font-mono text-cyber-cyan text-sm animate-pulse tracking-widest text-center">
+            ESTABLISHING SECURE CONNECTION...<br/>
+            <span className="text-xs text-gray-500 mt-2 block">ANALYZING GEOPOLITICAL PROTOCOLS</span>
+        </div>
+    </div>
+  );
+
+  if (error || !detail) return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 border border-red-900/30 bg-red-900/5 rounded-lg text-center mt-10">
+          <AlertTriangle size={48} className="text-red-500 mb-4" />
+          <h2 className="text-red-500 font-bold font-mono text-xl mb-2">DATA_PACKET_LOSS</h2>
+          <p className="text-gray-400 max-w-md mb-6 font-mono text-sm">
+              Unable to retrieve visa protocols. This may be due to network latency or secure connection timeout.
+          </p>
+          <button 
+            onClick={load}
+            className="flex items-center gap-2 px-6 py-3 bg-cyber-black border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black transition-all font-mono font-bold uppercase tracking-widest"
+          >
+              <RefreshCw size={16} /> Retry Connection
+          </button>
+      </div>
+  );
 
   const statusColor = 
       detail.status === VisaStatus.VISA_FREE ? 'text-cyber-cyan border-cyber-cyan' :
@@ -36,13 +76,13 @@ const DestinationDetail: React.FC = () => {
       'text-amber-500 border-amber-500';
 
   return (
-    <div className="max-w-5xl mx-auto pb-10">
+    <div className="max-w-5xl mx-auto pb-10 animate-in fade-in duration-500">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-cyber-cyan/70 hover:text-cyber-cyan mb-8 font-mono text-xs uppercase tracking-widest hover:underline decoration-1 underline-offset-4">
         <ArrowLeft size={14} /> Terminate_Session
       </button>
 
       {/* 1. Connection Visualizer */}
-      <div className="bg-cyber-black border border-cyber-cyan/30 p-8 md:p-12 mb-8 relative overflow-hidden">
+      <div className="bg-cyber-black border border-cyber-cyan/30 p-8 md:p-12 mb-8 relative overflow-hidden group">
          {/* Background Grid */}
          <div className="absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,240,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
          
@@ -50,7 +90,7 @@ const DestinationDetail: React.FC = () => {
             {/* Source Node */}
             <div className="flex flex-col items-center">
                 <div className="w-20 h-20 border-2 border-cyber-cyan p-1 bg-black shadow-neon-cyan">
-                     <img src={getFlagUrl(sourcePassport?.iso2, 'w160')} className="w-full h-full object-cover contrast-125" />
+                     <img src={getFlagUrl(sourcePassport?.iso2, 'w160')} className="w-full h-full object-cover contrast-125" alt="Source" />
                 </div>
                 <div className="mt-4 font-mono text-center">
                     <div className="text-xl font-bold text-white tracking-widest">{sourcePassport?.code}</div>
@@ -67,7 +107,7 @@ const DestinationDetail: React.FC = () => {
                     <div className="w-3 h-3 bg-black border border-cyber-cyan rotate-45 mx-auto z-10"></div>
                 </div>
                 <div className={`mt-4 px-6 py-2 border ${statusColor} bg-black/50 backdrop-blur-sm font-mono font-bold tracking-wider text-sm shadow-[0_0_15px_rgba(0,0,0,0.5)]`}>
-                    {detail.status.replace(/_/g, ' ')}
+                    {detail.status?.replace(/_/g, ' ') || 'UNKNOWN'}
                 </div>
             </div>
 
@@ -75,9 +115,9 @@ const DestinationDetail: React.FC = () => {
             <div className="flex flex-col items-center">
                 <div className="w-20 h-20 border-2 border-dashed border-gray-600 p-1 bg-black">
                      {detail.iso2Code ? (
-                        <img src={getFlagUrl(detail.iso2Code, 'w160')} className="w-full h-full object-cover contrast-125" />
+                        <img src={getFlagUrl(detail.iso2Code, 'w160')} className="w-full h-full object-cover contrast-125" alt="Target" />
                      ) : (
-                        <div className="w-full h-full bg-cyber-purple/20 flex items-center justify-center font-mono text-cyber-purple">{detail.isoCode}</div>
+                        <div className="w-full h-full bg-cyber-purple/20 flex items-center justify-center font-mono text-cyber-purple text-lg font-bold">{detail.isoCode}</div>
                      )}
                 </div>
                 <div className="mt-4 font-mono text-center">
@@ -127,23 +167,25 @@ const DestinationDetail: React.FC = () => {
                            <div className="bg-gray-900 h-2 w-full mb-1 overflow-hidden">
                                <div className="h-full bg-cyber-cyan w-2/3 animate-pulse"></div>
                            </div>
-                           <div className="text-right text-xs text-cyber-cyan font-mono">{detail.metadata?.airQuality || 'UNKNOWN'}</div>
+                           <div className="text-right text-xs text-cyber-cyan font-mono truncate">{detail.metadata?.airQuality || 'UNKNOWN'}</div>
                        </div>
                    </div>
                </div>
                
                {/* Airports Terminal Style */}
-               <div className="bg-cyber-black/80 border border-gray-800 p-6">
-                   <h3 className="text-gray-500 font-mono text-xs mb-4 uppercase tracking-widest">Entry_Ports [Air]</h3>
-                   <div className="space-y-3">
-                     {detail.metadata?.airports?.slice(0, 3).map((apt: any, i: number) => (
-                         <div key={i} className="font-mono text-xs flex justify-between group cursor-help">
-                             <span className="text-gray-300 group-hover:text-cyber-purple transition-colors">{apt.code}</span>
-                             <span className="text-gray-600 truncate max-w-[120px]">{apt.city}</span>
-                         </div>
-                     ))}
-                   </div>
-               </div>
+               {detail.metadata?.airports && detail.metadata.airports.length > 0 && (
+                 <div className="bg-cyber-black/80 border border-gray-800 p-6">
+                     <h3 className="text-gray-500 font-mono text-xs mb-4 uppercase tracking-widest">Entry_Ports [Air]</h3>
+                     <div className="space-y-3">
+                       {detail.metadata.airports.slice(0, 3).map((apt: any, i: number) => (
+                           <div key={i} className="font-mono text-xs flex justify-between group cursor-help">
+                               <span className="text-gray-300 group-hover:text-cyber-purple transition-colors">{apt.code}</span>
+                               <span className="text-gray-600 truncate max-w-[120px]">{apt.city}</span>
+                           </div>
+                       ))}
+                     </div>
+                 </div>
+               )}
           </div>
       </div>
     </div>
@@ -153,7 +195,7 @@ const DestinationDetail: React.FC = () => {
 const MetaRow = ({ icon, label, value }: any) => (
     <div className="flex justify-between items-center font-mono text-xs">
         <span className="text-gray-500 flex items-center gap-2">{icon} {label}</span>
-        <span className="text-white text-right">{value || 'N/A'}</span>
+        <span className="text-white text-right truncate max-w-[150px]" title={value}>{value || 'N/A'}</span>
     </div>
 );
 

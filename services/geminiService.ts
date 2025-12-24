@@ -5,15 +5,16 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 const modelName = 'gemini-3-flash-preview';
 
 // --- CACHE UTILITIES ---
-const CACHE_PREFIX = 'visa_ai_v2_';
+const CACHE_PREFIX = 'visa_ai_v3_'; // Bump version to clear old cache
 
 const getCache = <T>(key: string): T | null => {
   try {
-    const cached = sessionStorage.getItem(CACHE_PREFIX + key);
+    // Switch to localStorage for persistence across sessions/refreshes
+    const cached = localStorage.getItem(CACHE_PREFIX + key);
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
-      // Cache valid for 24 hours (static visa rules don't change often)
-      if (Date.now() - timestamp < 24 * 60 * 60 * 1000) { 
+      // Cache valid for 7 days (Visa rules are stable)
+      if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) { 
         return data as T;
       }
     }
@@ -25,40 +26,47 @@ const getCache = <T>(key: string): T | null => {
 
 const setCache = (key: string, data: any) => {
   try {
-    sessionStorage.setItem(CACHE_PREFIX + key, JSON.stringify({
+    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({
       data,
       timestamp: Date.now()
     }));
   } catch (e) {
-    console.warn("Cache write error (storage full?)", e);
+    // If storage full, try clearing old entries (simple strategy: clear all)
+    try {
+        localStorage.clear();
+        localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ data, timestamp: Date.now() }));
+    } catch(e2) {
+        console.warn("Cache write failed", e2);
+    }
   }
 };
 
 // --- JSON EXTRACTION UTILITIES ---
-/**
- * Extracts the first valid JSON object from a potentially messy string.
- * Solves the issue of AI outputting analysis text mixed with JSON.
- */
 const extractJSON = (text: string): any => {
   if (!text) return null;
   
-  // 1. Try cleaning markdown code blocks first
-  let cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  // 1. Try finding a markdown code block first (Most reliable)
+  // Matches ```json { ... } ``` including newlines
+  const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+     try { return JSON.parse(codeBlockMatch[1]); } catch(e) {}
+  }
 
-  // 2. Try direct parse
+  // 2. Fallback: Find the first '{' and the last '}' to isolate the object
+  const firstOpen = text.indexOf('{');
+  const lastClose = text.lastIndexOf('}');
+  
+  if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+      const candidate = text.substring(firstOpen, lastClose + 1);
+      try { return JSON.parse(candidate); } catch(e) {}
+  }
+
+  // 3. Last Resort: Simple cleanup
   try {
-    return JSON.parse(cleanText);
+    const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(clean);
   } catch (e) {
-    // 3. Fallback: Regex to find the outermost JSON object
-    // This looks for the first '{' and the last '}'
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch (e2) {
-        console.error("Regex JSON parse failed:", e2);
-      }
-    }
+    console.error("JSON Extraction Failed", e);
   }
   return null;
 };
@@ -72,18 +80,17 @@ export const fetchVisaRequirements = async (passportCode: string): Promise<VisaR
   if (cachedData) return cachedData;
 
   if (!process.env.API_KEY) {
-    return new Promise(resolve => setTimeout(() => resolve([]), 1000));
+    // Return mock data or empty if no key, to prevent crash
+    return [];
   }
 
   const prompt = `
-    I hold a passport from ${passportCode}.
-    List 35 popular travel destinations (mix of Asia, Europe, Americas, Oceania).
-    Categorize them strictly into: VISA_FREE, VISA_ON_ARRIVAL, ETA (includes e-visa), or VISA_REQUIRED.
+    Passport: ${passportCode}.
+    List 35 popular destinations (Asia, Europe, Americas, Oceania).
+    Categorize: VISA_FREE, VISA_ON_ARRIVAL, ETA, or VISA_REQUIRED.
     
-    INSTRUCTIONS: 
-    1. Output strictly a JSON Array. NO preamble. NO analysis text.
-    2. Fields: countryName, isoCode (3-letter), iso2Code (2-letter), status, continent.
-    3. Ensure 2024/2025 accuracy.
+    Output strictly a JSON Array.
+    Fields: countryName, isoCode (3-letter), iso2Code (2-letter), status, continent.
   `;
 
   try {
@@ -118,7 +125,6 @@ export const fetchVisaRequirements = async (passportCode: string): Promise<VisaR
       return data;
     }
     return [];
-
   } catch (error) {
     console.error("Gemini List API Error:", error);
     return [];
@@ -127,37 +133,40 @@ export const fetchVisaRequirements = async (passportCode: string): Promise<VisaR
 
 /**
  * Fetches detailed visa info.
- * Fixes: Verbose output and Error handling.
  */
 export const fetchDestinationDetails = async (passportCode: string, destinationIso: string): Promise<VisaRequirement | null> => {
    const cacheKey = `detail_${passportCode}_${destinationIso}`;
    const cachedData = getCache<VisaRequirement>(cacheKey);
    if (cachedData) return cachedData;
 
-   if (!process.env.API_KEY) return null;
+   if (!process.env.API_KEY) {
+       console.error("API_KEY is missing via process.env.API_KEY");
+       return null;
+   }
 
    // STRICT Prompt to prevent verbose text in metadata fields
    const prompt = `
-     Search 2025 visa requirements for ${passportCode} passport to ${destinationIso}.
+     Analyze 2025 visa rules: ${passportCode} -> ${destinationIso}.
      
-     Return valid JSON object ONLY. 
-     IMPORTANT: Keep metadata strings SHORT (max 30 chars). Do NOT include long paragraphs in 'population' or 'timezone'.
-     
-     Data needed:
+     STRICT CONSTRAINT: Metadata strings must be SHORT (max 30 chars).
+     - Bad: "UTC+07:00 (Indochina Time, Asia/Bangkok, no DST...)"
+     - Good: "UTC+07:00"
+     - Bad: "66 million (2024 estimate by World Bank...)"
+     - Good: "66 Million"
+
+     Return strictly JSON.
      1. Status (VISA_FREE, VISA_ON_ARRIVAL, ETA, VISA_REQUIRED)
-     2. Official Link (if exists)
-     3. Documents (List of strings)
-     4. Metadata (Population, Capital, Currency, Timezone, Air Quality)
+     2. Documents (Array of strings)
+     3. Metadata (Population, Capital, Currency, Timezone, Air Quality)
    `;
 
    try {
      const response = await ai.models.generateContent({
-       model: 'gemini-3-pro-preview', // Pro is better for tools, but slower. 
+       model: 'gemini-3-pro-preview', 
        contents: prompt,
        config: {
          tools: [{ googleSearch: {} }],
          responseMimeType: "application/json",
-         // We relax the schema slightly to avoid validation errors, but strictly enforce JSON in prompt
          responseSchema: {
            type: Type.OBJECT,
            properties: {
@@ -165,17 +174,16 @@ export const fetchDestinationDetails = async (passportCode: string, destinationI
              isoCode: { type: Type.STRING },
              iso2Code: { type: Type.STRING },
              status: { type: Type.STRING, enum: Object.values(VisaStatus) },
-             duration: { type: Type.STRING },
              officialLink: { type: Type.STRING },
              documentsRequired: { type: Type.ARRAY, items: { type: Type.STRING } },
              metadata: {
                 type: Type.OBJECT,
                 properties: {
-                    population: { type: Type.STRING, description: "e.g. '67 Million'" },
+                    population: { type: Type.STRING },
                     capital: { type: Type.STRING },
                     currency: { type: Type.STRING },
-                    timezone: { type: Type.STRING, description: "e.g. 'GMT+1'" },
-                    airQuality: { type: Type.STRING, description: "Short index, e.g. 'Moderate (55 AQI)'" },
+                    timezone: { type: Type.STRING },
+                    airQuality: { type: Type.STRING },
                     airports: {
                         type: Type.ARRAY,
                         items: {
@@ -197,8 +205,16 @@ export const fetchDestinationDetails = async (passportCode: string, destinationI
      const data = extractJSON(response.text);
      
      if (data) {
-        // Post-processing sanity check
-        if (!data.documentsRequired) data.documentsRequired = ["Passport"];
+        // Sanity Check: Truncate fields if AI ignored instructions
+        if (data.metadata) {
+            if (data.metadata.timezone && data.metadata.timezone.length > 30) {
+                data.metadata.timezone = data.metadata.timezone.split('(')[0].trim().substring(0, 30);
+            }
+            if (data.metadata.population && data.metadata.population.length > 20) {
+                data.metadata.population = data.metadata.population.substring(0, 20);
+            }
+        }
+
         setCache(cacheKey, data);
         return data;
      }
@@ -206,18 +222,17 @@ export const fetchDestinationDetails = async (passportCode: string, destinationI
      return null;
    } catch (error) {
      console.error("Gemini Detail API Error:", error);
-     return null;
+     throw error; // Throw so UI can see it's an API/Network error
    }
 }
 
 export const comparePassportAccess = async (codeA: string, codeB: string): Promise<ComparisonResult[]> => {
-    // We don't cache comparison aggressively as users might change pairs often, 
-    // but we could if needed. For now, keep it live.
     if (!process.env.API_KEY) return [];
 
     const prompt = `
-      Compare visa access for ${codeA} vs ${codeB} for 15 diverse countries (include JP, GB, US, CN, AE, ZA, BR, FR).
-      Return JSON Array.
+      Compare visa access: ${codeA} vs ${codeB}.
+      15 destinations (JP, GB, US, CN, AE, ZA, BR, FR + others).
+      JSON Array Only.
     `;
 
     try {
@@ -240,10 +255,8 @@ export const comparePassportAccess = async (codeA: string, codeB: string): Promi
                 }
             }
         });
-        
         return extractJSON(response.text) || [];
     } catch (e) {
-        console.error(e);
         return [];
     }
 }

@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { VisaRequirement, VisaStatus } from '../types';
 import { fetchDestinationDetails } from '../services/geminiService';
 import { POPULAR_PASSPORTS, getFlagUrl } from '../constants';
-import { ArrowLeft, CheckSquare, Clock, Wind, Banknote, Users, Building2, FileText, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Clock, Wind, Banknote, Users, Building2, FileText, RefreshCw, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 const DestinationDetail: React.FC = () => {
   const { iso } = useParams<{ iso: string }>();
@@ -13,26 +13,39 @@ const DestinationDetail: React.FC = () => {
   
   const [detail, setDetail] = useState<VisaRequirement | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [errorType, setErrorType] = useState<'NONE' | 'NETWORK' | 'CONFIG'>('NONE');
 
   // Get source passport details for visual
   const sourcePassport = POPULAR_PASSPORTS.find(p => p.code === passportCode);
 
   const load = async () => {
-    setLoading(true);
-    setError(false);
-    // Add artificial delay for visual stability if cache is instant
-    const start = Date.now();
-    
-    const data = await fetchDestinationDetails(passportCode, iso || '');
-    
-    const elapsed = Date.now() - start;
-    if (elapsed < 500) await new Promise(r => setTimeout(r, 500 - elapsed));
+    // 1. Config Check: Immediate feedback if API Key is missing in build
+    if (!process.env.API_KEY) {
+        console.error("BUILD ERROR: API_KEY is missing.");
+        setErrorType('CONFIG');
+        setLoading(false);
+        return;
+    }
 
-    if (data) {
-        setDetail(data);
-    } else {
-        setError(true);
+    setLoading(true);
+    setErrorType('NONE');
+    
+    try {
+        const start = Date.now();
+        const data = await fetchDestinationDetails(passportCode, iso || '');
+        const elapsed = Date.now() - start;
+        
+        // UX: Minimum loading time to prevent flicker
+        if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
+
+        if (data) {
+            setDetail(data);
+        } else {
+            setErrorType('NETWORK');
+        }
+    } catch (e) {
+        console.error(e);
+        setErrorType('NETWORK');
     }
     setLoading(false);
   };
@@ -40,6 +53,8 @@ const DestinationDetail: React.FC = () => {
   useEffect(() => {
     load();
   }, [iso, passportCode]);
+
+  // --- RENDER STATES ---
 
   if (loading) return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
@@ -49,23 +64,44 @@ const DestinationDetail: React.FC = () => {
         </div>
         <div className="font-mono text-cyber-cyan text-sm animate-pulse tracking-widest text-center">
             ESTABLISHING SECURE CONNECTION...<br/>
-            <span className="text-xs text-gray-500 mt-2 block">ANALYZING GEOPOLITICAL PROTOCOLS</span>
+            <span className="text-xs text-gray-500 mt-2 block">DECRYPTING VISA PROTOCOLS</span>
         </div>
     </div>
   );
 
-  if (error || !detail) return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 border border-red-900/30 bg-red-900/5 rounded-lg text-center mt-10">
-          <AlertTriangle size={48} className="text-red-500 mb-4" />
-          <h2 className="text-red-500 font-bold font-mono text-xl mb-2">DATA_PACKET_LOSS</h2>
+  if (errorType === 'CONFIG') return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 border border-red-500/50 bg-red-950/30 rounded-lg text-center mt-10 max-w-lg mx-auto">
+          <ShieldAlert size={48} className="text-red-500 mb-4 animate-pulse" />
+          <h2 className="text-red-500 font-bold font-mono text-xl mb-2">SYSTEM CONFIGURATION ERROR</h2>
+          <p className="text-gray-300 mb-4 font-mono text-sm">
+              API Key missing in production environment.
+          </p>
+          <div className="bg-black/50 p-4 rounded text-left text-xs font-mono text-gray-400 w-full mb-6 border border-gray-800">
+              <span className="text-red-400">root@server:~$</span> check env<br/>
+              <span className="text-yellow-400">WARN:</span> process.env.API_KEY is undefined.<br/>
+              <span className="text-blue-400">FIX:</span> Ensure .env exists on build server and 'vite build' loads it.
+          </div>
+          <button onClick={() => navigate('/')} className="px-6 py-2 border border-gray-600 hover:bg-gray-800 text-sm font-mono">RETURN_HOME</button>
+      </div>
+  );
+
+  if (errorType === 'NETWORK' || !detail) return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center p-8 border border-amber-900/30 bg-amber-900/5 rounded-lg text-center mt-10">
+          <AlertTriangle size={48} className="text-amber-500 mb-4" />
+          <h2 className="text-amber-500 font-bold font-mono text-xl mb-2">CONNECTION INTERRUPTED</h2>
           <p className="text-gray-400 max-w-md mb-6 font-mono text-sm">
-              Unable to retrieve visa protocols. This may be due to network latency or secure connection timeout.
+              Data packet loss detected. This often occurs when:
+              <ul className="list-disc list-inside mt-2 text-left pl-4 text-xs text-gray-500 space-y-1">
+                  <li>Client network blocks external AI services (VPN required?).</li>
+                  <li>API Rate limit exceeded (Try again in 30s).</li>
+                  <li>Signal interference on mobile networks.</li>
+              </ul>
           </p>
           <button 
             onClick={load}
             className="flex items-center gap-2 px-6 py-3 bg-cyber-black border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black transition-all font-mono font-bold uppercase tracking-widest"
           >
-              <RefreshCw size={16} /> Retry Connection
+              <RefreshCw size={16} /> RE-INITIALIZE UPLINK
           </button>
       </div>
   );

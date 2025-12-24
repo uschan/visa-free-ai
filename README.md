@@ -1,20 +1,86 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# VisaFreeList AI 🌍✈️
 
-# Run and deploy your AI Studio app
+> **Decode Global Mobility v2.0**  
+> An intelligent, cyberpunk-themed visa requirement checker and passport comparison tool powered by Google Gemini AI.
 
-This contains everything you need to run your app locally.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![React](https://img.shields.io/badge/react-18.x-cyan.svg)
+![Gemini](https://img.shields.io/badge/AI-Gemini_3_Flash-purple.svg)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1MZzC6ecmAEMXdcno3iHDWKbnkMtzP9W5
+## 📖 Overview
 
-## Run Locally
+VisaFreeList AI is a modern web application designed to simplify global travel logic. Unlike traditional static lists, this app leverages **Google's Gemini 3 Flash & Pro models** to provide real-time, context-aware visa data, parsing complex immigration rules into a streamlined, terminal-style interface.
 
-**Prerequisites:**  Node.js
+## ✨ Key Features
 
+*   **Cyberpunk Terminal UI**: Immersive, responsive design with glitch effects, scanlines, and neon aesthetics.
+*   **AI-Powered Analysis**: Uses Gemini 3 Flash for rapid list generation and Gemini 3 Pro with **Google Search Grounding** for accurate, up-to-date detailed entry requirements.
+*   **Passport Comparison Engine**: Visually compare the power of two passports against 15 diverse destinations side-by-side.
+*   **Visual Connectivity**: Graph-based visualization of travel corridors (Source Node -> Target Node).
+*   **Global Coverage**: Database supports all major passports and destinations via ISO standards.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🛠️ Tech Stack
+
+*   **Frontend**: React 18, TypeScript, Tailwind CSS
+*   **AI Integration**: @google/genai SDK
+*   **Visualization**: D3.js (World Map), Lucide React (Icons)
+*   **Build Tool**: Vite
+*   **Deployment**: Nginx / Static Hosting
+
+## 🚀 Local Development
+
+### Prerequisites
+
+*   Node.js (v18 or higher)
+*   Google Gemini API Key
+
+### Installation
+
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/uschan/visa-free-ai.git
+    cd visa-free-ai
+    ```
+
+2.  **Install dependencies**
+    ```bash
+    npm install
+    ```
+
+3.  **Configure Environment**
+    Create a `.env` file in the root directory:
+    ```env
+    API_KEY=your_google_gemini_api_key_here
+    ```
+
+4.  **Start Dev Server**
+    ```bash
+    npm run dev
+    ```
+
+## 📦 Production Build
+
+To create an optimized static build:
+
+```bash
+npm run build
+```
+
+The output will be in the `dist/` directory, ready to be served by Nginx, Vercel, or Netlify.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+*Built by [WildSalt](https://wildsalt.me) // System Ready*

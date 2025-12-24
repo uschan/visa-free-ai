@@ -66,7 +66,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 <Cpu size={12} /> 
                 <span>PROCESSING NODE: GEMINI-3-FLASH</span>
             </div>
-            <span>© {new Date().getFullYear()} PROTOCOL: VISA_FREE_LIST // AUTHORIZED USE ONLY</span>
+            <span>© {new Date().getFullYear()} PROTOCOL: VISA_FREE_LIST // 野盐Vibe Coding </span>
           </div>
 
            {/* Social Links Network - Compact Container */}
@@ -97,7 +97,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
               <div className="w-px h-4 bg-gray-700 mx-1"></div>
 
-              <SocialLink href="https://wildsalt.me/" label="WildSalt" hoverColor="hover:text-cyber-cyan">
+              <SocialLink href="https://wildsalt.me/" label="野盐WildSalt" hoverColor="hover:text-cyber-cyan">
                 <Globe size={16} />
               </SocialLink>
            </div>
